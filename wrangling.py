@@ -88,17 +88,6 @@ def create_big_df():
         df = df.loc[:, ~df.columns.duplicated()]
         shp_dfs_renamed[year] = df
 
-    # drop nas for average daily traffic - only in the 2018 df.
-    shp_dfs_renamed['2018'] = shp_dfs_renamed['2018'].dropna(subset=['average_daily_traffic'])
-
-
-    # replace route types
-    for year, df in shp_dfs_renamed.items():
-        if 'route_type' in df.columns:
-            df['route_type'] = df.route_type.str.replace('L', 'S')
-        if 'route_type_number' in df.columns:
-            df['route_type_number'] = df.route_type_number.replace(9, 7)
-
     # drop duplicated rows in dataframes
     # some rows are only unique based on row_number (id1) and id2 fields
     for year, df in shp_dfs_renamed.items():
@@ -108,6 +97,49 @@ def create_big_df():
         df = df.drop_duplicates()
         shp_dfs_renamed[year] = df
 
+    # replace route type
+    for year, df in shp_dfs_renamed.items():
+        if 'route_type' in df.columns:
+            df['route_type'] = df.route_type.str.replace('L', 'S')
+        if 'route_type_number' in df.columns:
+            df['route_type_number'] = df.route_type_number.replace(9, 7)
+
+    # drop dupes by identity column
+    for year, df in shp_dfs_renamed.items():
+        df['average_daily_traffic'] = df. \
+            groupby(['station_id', 'route_identifier', 'route_number']). \
+            average_daily_traffic. \
+            transform('mean')
+        # drop dupes if there are any
+        df = df.drop_duplicates()
+        # if there are still multiple records within the group, we'll take the first record, now that adt is averaged across the group
+        df = df.groupby(['station_id', 'route_identifier', 'route_number']).head(1)
+        shp_dfs_renamed[year] = df
+
+    exclude_cols = ['station_id', 'route_identifier', 'route_number', 'average_daily_traffic', 'year']
+    cols = [c for c in shp_dfs_renamed['2018'].columns if c not in exclude_cols]
+    
+    # update all values for consistency
+    update_df = shp_dfs_renamed['2018'].copy(deep=True)
+    # DON'T overwrite average daily traffic values or year
+    update_df = update_df.drop(['average_daily_traffic', 'year'], axis=1)
+    update_df = update_df.set_index(['station_id', 'route_identifier', 'route_number'])
+    cols = update_df.columns
+
+    for year, df in shp_dfs_renamed.items():
+    # make sure the year column is filled in for each one
+        if year != '2018':
+            for c in cols:
+                if c not in df.columns:
+                    df[c] = np.nan
+            df = df.set_index(['station_id', 'route_identifier', 'route_number'])
+            # overwrite all column values where index matches update_df index 
+            df.update(update_df, overwrite=True)
+            shp_dfs_renamed[year] = df.reset_index()
+    
+    # drop nas for average daily traffic - only in the 2018 df.
+    
+    shp_dfs_renamed['2018'] = shp_dfs_renamed['2018'].dropna(subset=['average_daily_traffic'])
 
     # convert all the lat/long series in the dfs if the dtype of the column is object (string) and has a colon
     for year, df in shp_dfs_renamed.items():
@@ -120,39 +152,9 @@ def create_big_df():
                 df['latitude'] = df.latitude.astype('float')
                 df['longitude'] = df.longitude.astype('float')
 
-    # eliminate duplicates across identity columns
-    for year, df in shp_dfs_renamed.items():
-        df['average_daily_traffic'] = df. \
-            groupby(['station_id', 'route_identifier', 'route_number']). \
-            average_daily_traffic. \
-            transform('mean')
-        # drop dupes if there are any
-        df = df.drop_duplicates()
-        # if there are still multiple records within the group, we'll take the first record, now that adt is averaged across the group
-        df = df.groupby(['station_id', 'route_identifier', 'route_number']).head(1)
-        shp_dfs_renamed[year] = df
-
-    # update all the dfs from the 2018 dataframe
-    update_df = shp_dfs_renamed['2018'].copy(deep=True)
-    # DON'T overwrite average daily traffic values or year
-    update_df = update_df.drop(['average_daily_traffic', 'year'], axis=1)
-    update_df = update_df.set_index(['station_id', 'route_identifier', 'route_number'])
-    cols = update_df.columns
-
-    for year, df in shp_dfs_renamed.items():
-        # make sure the year column is filled in for each one
-        if year != '2018':
-            for c in cols:
-                if c not in df.columns:
-                    df[c] = np.nan
-            df = df.set_index(['station_id', 'route_identifier', 'route_number'])
-            # overwrite all column values where index matches update_df index 
-            df.update(update_df, overwrite=True)
-            shp_dfs_renamed[year] = df.reset_index()
-
     # stack all the data frames together
     traffic_df = pd.concat(shp_dfs_renamed.values(), sort=True, axis=0)
-
+    
     cols_to_keep = [
         'average_daily_traffic',
         'county_id',
@@ -171,22 +173,22 @@ def create_big_df():
         'station_id',
         'year'
     ]
+
     traffic_df = traffic_df[cols_to_keep]
-    traffic_df = traffic_df.reset_index(drop=True)
+    for col in cols_to_keep:
+        traffic_df[col] = traffic_df.groupby(['station_id', 'route_identifier', 'route_number'])[col].bfill().ffill()
 
-    exclude_cols = ['station_id', 'route_identifier', 'route_number', 'average_daily_traffic', 'year']
-    cols = [c for c in traffic_df.columns if c not in exclude_cols]
+    traffic_df = traffic_df.sort_values(['station_id', 'route_identifier', 'route_number', 'year'])
 
-    # fill in remaining na's by grouping by identity columns and filling within group
-    for col in cols:
-        traffic_df[col] = traffic_df.groupby(['station_id', 'route_identifier', 'route_number'])[col].ffill().bfill()
-
-    traffic_df['route_type'] = traffic_df['route_type'].str.replace('-', '')
-
-    return traffic_df
-
-"""
-if __name__=='__main__':
-    tf = create_big_df()
-    print(tf.info())
-"""
+    traffic_df['pct_changed'] = traffic_df. \
+        groupby(['station_id', 'route_identifier', 'route_number']) \
+        ['average_daily_traffic']. \
+        pct_change()
+    
+    traffic_df['route_type'] = traffic_df.route_type.str.replace('-', '')
+    traffic_df['route'] = traffic_df.route_type + '-' + traffic_df.route_number.astype('str')
+    traffic_df['year'] = traffic_df.year.astype('int')
+    traffic_df['county_name'] = traffic_df.county_name.str.upper()
+    traffic_df.loc[traffic_df.route_number == 385, ['route_type', 'route_type_number']] = 'I', 1
+    
+    return traffic_df 
