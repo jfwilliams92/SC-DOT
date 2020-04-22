@@ -31,25 +31,47 @@ county_dict.insert(0, {'label': 'All', 'value': ''})
 app.layout = html.Div([
     html.Div([
         html.Div([
-            html.H4('Route Type Slicer'),
+            html.H5('Route Type Slicer'),
             dcc.Dropdown(
                 id='route-types',
                 options=route_dict,
                 value='',
                 multi=True
             )
-        ], className="six columns"),
+        ], className="four columns"),
         html.Div([
-            html.H4('County Slicer'),
+            html.H5('County Slicer'),
             dcc.Dropdown(
                 id='county-names',
                 options=county_dict,
                 value='',
                 multi=True,
             )
-        ], className="six columns")
-    ], className="row"
-    ),
+        ], className="four columns"),
+        html.Div([
+            html.H5('Scale'),
+            dcc.RadioItems(
+            id='scale',
+            options=[
+                {'label': 'Normal', 'value': 'Normal'},
+                {'label': 'Log', 'value': 'Log'}
+            ],
+            value='Log'
+            )  
+        ], className="two columns"),
+        html.Div([
+            html.H5('Map Background'),
+            dcc.RadioItems(
+            id='background',
+            options=[
+                {'label': 'Light', 'value': 'light'},
+                {'label': 'Dark', 'value': 'dark'}
+            ],
+            value='dark'
+            )  
+        ], className="two columns")
+        
+    ], className="row"),
     html.Div([
         dcc.Slider(
             id='crossfilter-year--slider',
@@ -67,9 +89,11 @@ app.layout = html.Div([
     dash.dependencies.Output('scatter-geo', 'figure'),
     [dash.dependencies.Input('crossfilter-year--slider', 'value'),
     dash.dependencies.Input('route-types', 'value'),
-    dash.dependencies.Input('county-names', 'value')]
+    dash.dependencies.Input('county-names', 'value'),
+    dash.dependencies.Input('scale', 'value'),
+    dash.dependencies.Input('background', 'value')]
 )
-def update_graph(year_value, route_type, county_name):
+def update_graph(year_value, route_type, county_name, scale, map_background):
     plot_df = traffic_df[traffic_df.year == year_value]
 
     if (not route_type) or (route_type == ''):
@@ -80,18 +104,25 @@ def update_graph(year_value, route_type, county_name):
 
     plot_df = plot_df[(plot_df.route_type.isin(route_type)) & (plot_df.county_name.isin(county_name))]
 
+    # map configurations
+    color = np.log10(plot_df['average_daily_traffic']) if scale == 'Log' else plot_df['average_daily_traffic']
+    cmax = max(color)
+    cmin = min(color)
+    title = 'Log(Average Daily Traffic)' if scale == 'Log' else 'Average Daily Traffic'
+    size = color if scale == 'Log' else np.log(color) / 2
+
     data = [go.Scattermapbox(
         lat = plot_df['latitude'],
         lon = plot_df['longitude'],
         mode = 'markers',
         marker = dict(
-            size = np.log10(plot_df['average_daily_traffic']),
+            size = size,
             opacity = 0.5, 
-            color = np.log10(plot_df['average_daily_traffic']),
-            colorbar = dict(title = 'Log(Average Daily Traffic)'),
+            color = color,
+            colorbar = dict(title = title),
             colorscale = 'Jet',
-            cmax = max(np.log10(plot_df['average_daily_traffic'])),
-            cmin = min(np.log10(plot_df['average_daily_traffic'])),
+            cmax = cmax,
+            cmin = cmin,
             showscale = True
         ),
         text = plot_df['route_leg_descrip'] + " - AverageDailyTraffic: " + plot_df.average_daily_traffic.astype(str)
@@ -109,9 +140,9 @@ def update_graph(year_value, route_type, county_name):
             center = dict(lat = 34, lon = -81),
             pitch = 0,
             zoom = 6.5,
-            style = 'dark'
+            style = map_background
             ),
-        height=850,
+        height=950,
         uirevision=True
         )
 
