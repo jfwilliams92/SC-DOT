@@ -15,6 +15,7 @@ This repo was built to explore SC DOT data. Please see <a href="">this</a> blog 
 ## To run the Dash app
 1. Clone or download this repository
 2. Create a new environment (I use conda)
+3. Sign up for a free mapbox key and store it in your environment as MAPBOX_KEY
 3. `pip install requirements.txt`
 4. `python app.py`
 5. Follow the link to see the app in local mode!
