@@ -1,6 +1,6 @@
 # SC DOT Data - Exploration
 
-This repo was built to explore SC DOT data. Please see <a href="">this</a> blog post for a detailed discussion.
+This repo was built to explore SC DOT data. Please see <a href="https://medium.com/@jfw_4978/sc-dot-and-zillow-home-sales-1808562306e2">this</a> blog post for a detailed discussion.
 
 ## Files and Folders
 - data - contains all the data necessary to run the Dash app and the Juptyer notebook data exploration
