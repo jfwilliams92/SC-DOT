@@ -31,7 +31,7 @@ def convert_lat_long(series, delimiter=':', precision=5):
 def create_big_df():
     # read GIS dbf data into dataframes, one file for each year between 2009 and 2018
     shp_dfs = {}
-    for root, dirs, files in os.walk("./shp_files"):
+    for root, dirs, files in os.walk("./data/shp_files"):
         for file in files:
             if file.endswith(".dbf"):
                 # print(file.split('.')[0])

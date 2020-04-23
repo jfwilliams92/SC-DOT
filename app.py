@@ -18,13 +18,14 @@ mapboxkey = os.environ.get('MAPBOX_KEY')
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+server = app.server
 
 # slicer values 
 route_dict = [{'label': i, 'value': i} for i in traffic_df.route_type.unique()]
-route_dict.insert(0, {'label': 'All', 'value': ''})
+route_dict.insert(0, {'label': 'All', 'value': 'All'})
 
-county_dict = [{'label': i, 'value': i} for i in traffic_df.county_name.unique()]
-county_dict.insert(0, {'label': 'All', 'value': ''})
+county_dict = [{'label': i, 'value': i} for i in sorted(traffic_df.county_name.unique())]
+county_dict.insert(0, {'label': 'All', 'value': 'All'})
 
 
 # app layout
@@ -35,7 +36,7 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id='route-types',
                 options=route_dict,
-                value='',
+                value='All',
                 multi=True
             )
         ], className="four columns"),
@@ -44,7 +45,7 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id='county-names',
                 options=county_dict,
-                value='',
+                value='All',
                 multi=True,
             )
         ], className="four columns"),
@@ -96,10 +97,10 @@ app.layout = html.Div([
 def update_graph(year_value, route_type, county_name, scale, map_background):
     plot_df = traffic_df[traffic_df.year == year_value]
 
-    if (not route_type) or (route_type == ''):
+    if (not route_type) or (route_type=='All'):
         route_type = list(traffic_df.route_type.unique())
 
-    if (not county_name) or (county_name == ''):
+    if (not county_name) or (county_name == 'All'):
         county_name = list(traffic_df.county_name.unique())
 
     plot_df = plot_df[(plot_df.route_type.isin(route_type)) & (plot_df.county_name.isin(county_name))]
