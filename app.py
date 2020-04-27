@@ -9,9 +9,10 @@ import os
 from wrangling import create_big_df
 
 ## read the data in and process
-traffic_df = create_big_df()
-traffic_df['log_adt'] = np.log(traffic_df.average_daily_traffic)
-traffic_df['log10_adt'] = np.log10(traffic_df.average_daily_traffic)
+if not os.path.isfile('./data/bigframe.pkl'):
+    create_big_df() 
+
+traffic_df = pd.read_pickle('./data/bigframe.pkl')
 
 # create the dash app
 mapboxkey = os.environ.get('MAPBOX_KEY')
@@ -21,47 +22,60 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
 
 # slicer values 
-route_dict = [{'label': i, 'value': i} for i in traffic_df.route_type.unique()]
+route_dict = [{'label': i, 'value': i} for i in sorted(traffic_df.route_type.unique())]
 route_dict.insert(0, {'label': 'All', 'value': 'All'})
 
 county_dict = [{'label': i, 'value': i} for i in sorted(traffic_df.county_name.unique())]
 county_dict.insert(0, {'label': 'All', 'value': 'All'})
+
+route_name_dict = [{'label': i, 'value': i} for i in sorted(traffic_df.route.unique())]
+route_name_dict.insert(0, {'label': 'All', 'value': 'All'})
 
 
 # app layout
 app.layout = html.Div([
     html.Div([
         html.Div([
-            html.H5('Route Type Slicer'),
+            html.H6('Route Type Slicer'),
             dcc.Dropdown(
                 id='route-types',
                 options=route_dict,
                 value='All',
                 multi=True
             )
-        ], className="four columns"),
+        ], className="three columns"),
         html.Div([
-            html.H5('County Slicer'),
+            html.H6('County Slicer'),
             dcc.Dropdown(
                 id='county-names',
                 options=county_dict,
                 value='All',
                 multi=True,
             )
-        ], className="four columns"),
+        ], className="three columns"),
         html.Div([
-            html.H5('Scale'),
+            html.H6('Route Slicer'),
+            dcc.Dropdown(
+                id='route-names',
+                options=route_name_dict,
+                value='All',
+                multi=True,
+            )
+        ], className="three columns"),
+        html.Div([
+            html.H6('Values'),
             dcc.RadioItems(
             id='scale',
             options=[
-                {'label': 'Normal', 'value': 'Normal'},
-                {'label': 'Log', 'value': 'Log'}
+                {'label': 'AADT', 'value': 'AADT'},
+                {'label': 'Log10AADT', 'value': 'Log10AADT'},
+                {'label': 'Total Percent Change', 'value': 'Percent Change'}
             ],
-            value='Log'
+            value='Log10AADT'
             )  
         ], className="two columns"),
         html.Div([
-            html.H5('Map Background'),
+            html.H6('Map Background'),
             dcc.RadioItems(
             id='background',
             options=[
@@ -70,7 +84,7 @@ app.layout = html.Div([
             ],
             value='dark'
             )  
-        ], className="two columns")
+        ], className="one column")
         
     ], className="row"),
     html.Div([
@@ -88,29 +102,46 @@ app.layout = html.Div([
 
 @app.callback(
     dash.dependencies.Output('scatter-geo', 'figure'),
-    [dash.dependencies.Input('crossfilter-year--slider', 'value'),
-    dash.dependencies.Input('route-types', 'value'),
+    [dash.dependencies.Input('route-types', 'value'),
     dash.dependencies.Input('county-names', 'value'),
+    dash.dependencies.Input('route-names', 'value'),
     dash.dependencies.Input('scale', 'value'),
     dash.dependencies.Input('background', 'value')]
 )
-def update_graph(year_value, route_type, county_name, scale, map_background):
-    plot_df = traffic_df[traffic_df.year == year_value]
-
+def update_map(route_type, county_name, route_name, scale, map_background):
+  
     if (not route_type) or (route_type=='All'):
         route_type = list(traffic_df.route_type.unique())
 
     if (not county_name) or (county_name == 'All'):
         county_name = list(traffic_df.county_name.unique())
 
-    plot_df = plot_df[(plot_df.route_type.isin(route_type)) & (plot_df.county_name.isin(county_name))]
+    if (not route_name) or (route_name == 'All'):
+        route_name = list(traffic_df.route.unique())
+
+    route_type_mask = traffic_df.route_type.isin(route_type)
+    county_mask = traffic_df.county_name.isin(county_name)
+    route_mask = traffic_df.route.isin(route_name)
+    filter_mask = route_type_mask & county_mask & route_mask
+
+    plot_df = traffic_df[filter_mask]
 
     # map configurations
-    color = np.log10(plot_df['average_daily_traffic']) if scale == 'Log' else plot_df['average_daily_traffic']
+    if scale == 'AADT':
+        color = plot_df['average_daily_traffic']
+        title = 'Average Daily Traffic'
+        size = np.log(plot_df['average_daily_traffic']) / 2
+    elif scale == 'Log10AADT':
+        color = np.log10(plot_df['average_daily_traffic'])
+        title = 'Log10(Average Daily Traffic)'
+        size = color
+    elif scale == 'Percent Change':
+        color = plot_df['total_pct_change']
+        title = 'Total Pct Change'
+        size = np.abs(color) / 100
+
     cmax = max(color)
     cmin = min(color)
-    title = 'Log(Average Daily Traffic)' if scale == 'Log' else 'Average Daily Traffic'
-    size = color if scale == 'Log' else np.log(color) / 2
 
     data = [go.Scattermapbox(
         lat = plot_df['latitude'],
