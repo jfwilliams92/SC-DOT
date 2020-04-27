@@ -23,13 +23,13 @@ server = app.server
 
 # slicer values 
 route_dict = [{'label': i, 'value': i} for i in sorted(traffic_df.route_type.unique())]
-route_dict.insert(0, {'label': 'All', 'value': 'All'})
+route_dict.insert(0, {'label': 'ALL', 'value': 'ALL'})
 
 county_dict = [{'label': i, 'value': i} for i in sorted(traffic_df.county_name.unique())]
-county_dict.insert(0, {'label': 'All', 'value': 'All'})
+county_dict.insert(0, {'label': 'ALL', 'value': 'ALL'})
 
 route_name_dict = [{'label': i, 'value': i} for i in sorted(traffic_df.route.unique())]
-route_name_dict.insert(0, {'label': 'All', 'value': 'All'})
+route_name_dict.insert(0, {'label': 'ALL', 'value': 'ALL'})
 
 
 # app layout
@@ -41,8 +41,9 @@ app.layout = html.Div([
                 dcc.Dropdown(
                     id='route-types',
                     options=route_dict,
-                    value=['All'],
-                    multi=True
+                    value=[],
+                    multi=True,
+                    placeholder='Click or search'
                 )
             ], className="row"),
             html.Div([
@@ -50,8 +51,9 @@ app.layout = html.Div([
                 dcc.Dropdown(
                     id='county-names',
                     options=county_dict,
-                    value=['All'],
+                    value=[],
                     multi=True,
+                    placeholder='Click or search'
                 )
             ], className="row"),
             html.Div([
@@ -59,8 +61,9 @@ app.layout = html.Div([
                 dcc.Dropdown(
                     id='route-names',
                     options=route_name_dict,
-                    value=['All'],
+                    value=[],
                     multi=True,
+                    placeholder='Click or search'
                 )
             ], className="row"),
             html.Div([
@@ -87,15 +90,88 @@ app.layout = html.Div([
                 )  
             ], className="row")    
         ], className="three columns", style={"padding": 25}),
-        html.Div([
-            dcc.Graph(id='scatter-geo')
-        ], className="nine columns")
-    ], className="row"),
-    html.Div(
-        [dcc.Graph(id='year-plot')], className="row"
-    )
+        html.Div(
+            className="nine columns bg-grey",
+            children=[
+            dcc.Graph(id='scatter-geo'),
+            dcc.Graph(id='year-plot')
+        ])
+    ], className="row")
 ])
 
+# update route names with slicer values
+@app.callback(
+    dash.dependencies.Output("route-names", "options"),
+    [dash.dependencies.Input('route-types', 'value'),
+    dash.dependencies.Input("county-names", "value")]
+)
+def update_route_names(route_type, county_name):
+
+    if len(route_type) < 1 or route_type==['ALL']:
+        route_type = list(traffic_df.route_type.unique())
+
+    if len(county_name) < 1 or county_name==['ALL']:
+        county_name = list(traffic_df.county_name.unique())
+    
+    route_type_mask = traffic_df.route_type.isin(route_type)
+    county_mask = traffic_df.county_name.isin(county_name)
+    filter_mask = route_type_mask & county_mask
+    df = traffic_df[filter_mask]
+    
+    route_name_dict = [{'label': i, 'value': i} for i in sorted(df.route.unique())]
+    route_name_dict.insert(0, {'label': 'ALL', 'value': 'ALL'})
+
+    return route_name_dict
+
+# update route types with other slicer values
+@app.callback(
+    dash.dependencies.Output("route-types", "options"),
+    [dash.dependencies.Input('route-names', 'value'),
+    dash.dependencies.Input("county-names", "value")]
+)
+def update_route_types(route_name, county_name):
+
+    if len(route_name) < 1 or route_name==['ALL']:
+        route_name = list(traffic_df.route.unique())
+
+    if len(county_name) < 1 or county_name==['ALL']:
+        county_name = list(traffic_df.county_name.unique())
+    
+    route_mask = traffic_df.route.isin(route_name)
+    county_mask = traffic_df.county_name.isin(county_name)
+    filter_mask = route_mask & county_mask
+    df = traffic_df[filter_mask]
+    
+    route_dict = [{'label': i, 'value': i} for i in sorted(df.route_type.unique())]
+    route_dict.insert(0, {'label': 'ALL', 'value': 'ALL'})
+
+    return route_dict
+
+# update county names with other slicer values
+@app.callback(
+    dash.dependencies.Output("county-names", "options"),
+    [dash.dependencies.Input('route-names', 'value'),
+    dash.dependencies.Input("route-types", "value")]
+)
+def update_county(route_name, route_type):
+
+    if len(route_name) < 1 or route_name==['ALL']:
+        route_name = list(traffic_df.route.unique())
+
+    if len(route_type) < 1 or route_type==['ALL']:
+        route_type = list(traffic_df.route_type.unique())
+    
+    route_mask = traffic_df.route.isin(route_name)
+    route_type_mask = traffic_df.route_type.isin(route_type)
+    filter_mask = route_mask & route_type_mask
+    df = traffic_df[filter_mask]
+    
+    county_dict = [{'label': i, 'value': i} for i in sorted(df.county_name.unique())]
+    county_dict.insert(0, {'label': 'ALL', 'value': 'ALL'})
+
+    return county_dict
+
+# update mapbox plot
 @app.callback(
     dash.dependencies.Output('scatter-geo', 'figure'),
     [dash.dependencies.Input('route-types', 'value'),
@@ -106,13 +182,13 @@ app.layout = html.Div([
 )
 def update_map(route_type, county_name, route_name, scale, map_background):
   
-    if len(route_type) < 1 or route_type==['All']:
+    if len(route_type) < 1 or route_type==['ALL']:
         route_type = list(traffic_df.route_type.unique())
 
-    if len(county_name) < 1 or county_name==['All']:
+    if len(county_name) < 1 or county_name==['ALL']:
         county_name = list(traffic_df.county_name.unique())
 
-    if len(route_name) < 1 or route_name==['All']:
+    if len(route_name) < 1 or route_name==['ALL']:
         route_name = list(traffic_df.route.unique())
 
     route_type_mask = traffic_df.route_type.isin(route_type)
@@ -159,7 +235,6 @@ def update_map(route_type, county_name, route_name, scale, map_background):
     )]
                
     layout = go.Layout(
-        title = title,
         #autosize = True,
         hovermode = 'closest',
         showlegend = False,
@@ -177,6 +252,7 @@ def update_map(route_type, county_name, route_name, scale, map_background):
 
     return {'data': data, 'layout': layout} 
 
+# update year over year violin plot
 @app.callback(
     dash.dependencies.Output('year-plot', 'figure'),
     [dash.dependencies.Input('route-types', 'value'),
@@ -186,13 +262,13 @@ def update_map(route_type, county_name, route_name, scale, map_background):
 )
 def update_yearplot(route_type, county_name, route_name, scale):
   
-    if len(route_type) < 1 or route_type==['All']:
+    if len(route_type) < 1 or route_type==['ALL']:
         route_type = list(traffic_df.route_type.unique())
 
-    if len(county_name) < 1 or county_name==['All']:
+    if len(county_name) < 1 or county_name==['ALL']:
         county_name = list(traffic_df.county_name.unique())
 
-    if len(route_name) < 1 or route_name==['All']:
+    if len(route_name) < 1 or route_name==['ALL']:
         route_name = list(traffic_df.route.unique())
 
     route_type_mask = traffic_df.route_type.isin(route_type)
