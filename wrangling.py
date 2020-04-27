@@ -187,7 +187,7 @@ def create_big_df():
         pct_change()
     
     traffic_df['route_type'] = traffic_df.route_type.str.replace('-', '')
-    traffic_df['route'] = traffic_df.route_type + '-' + traffic_df.route_number.astype('str')
+    traffic_df['route'] = traffic_df.route_type + '-' + traffic_df.route_number.astype('int').astype('str')
     traffic_df['year'] = traffic_df.year.astype('int')
     traffic_df['county_name'] = traffic_df.county_name.str.upper()
     traffic_df.loc[traffic_df.route_number == 385, ['route_type', 'route_type_number']] = 'I', 1
