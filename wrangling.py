@@ -180,6 +180,7 @@ def create_big_df():
 
     traffic_df = traffic_df.sort_values(['station_id', 'route_identifier', 'route_number', 'year'])
 
+    # add a bunch of values
     traffic_df['pct_changed'] = traffic_df. \
         groupby(['station_id', 'route_identifier', 'route_number']) \
         ['average_daily_traffic']. \
@@ -190,5 +191,15 @@ def create_big_df():
     traffic_df['year'] = traffic_df.year.astype('int')
     traffic_df['county_name'] = traffic_df.county_name.str.upper()
     traffic_df.loc[traffic_df.route_number == 385, ['route_type', 'route_type_number']] = 'I', 1
+    traffic_df['log_adt'] = np.log(traffic_df.average_daily_traffic)
+    traffic_df['log10_adt'] = np.log10(traffic_df.average_daily_traffic)
+    traffic_df['total_pct_change'] = traffic_df\
+        .sort_values(['station_id', 'route_identifier', 'route_number', 'year'])\
+        .groupby(['station_id', 'route_identifier', 'route_number'])\
+        .average_daily_traffic\
+        .transform(lambda x: ((x.values[-1] - x.values[0]) / x.values[0]) * 100)
     
-    return traffic_df 
+    print('saving as pickle file')
+    traffic_df.to_pickle('./data/bigframe.pkl')
+    print('donezo')
+
