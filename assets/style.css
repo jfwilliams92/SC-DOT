@@ -58,20 +58,15 @@ a {
 }
 .radio-div{
   width: 97%;
-  text-align: center;
+  text-align: left;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 .Select-control, .Select-menu-outer, .Select-multi-value-wrapper, .select-up, .is-open .Select-control {
   background-color: #1E1E1E;
   color: white;
   
 }
-
-#bar-selector .Select-multi-value-wrapper{
-  max-height: 82px;
-  overflow-y: auto;
-  margin: 0px 0px -3px 0px;
-}
-
 .Select-control{
   border: 0.5px solid #dbdbdb44;
 }
