@@ -16,9 +16,9 @@ traffic_df = pd.read_pickle('./data/bigframe.pkl')
 
 # create the dash app
 mapboxkey = os.environ.get('MAPBOX_KEY')
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+# external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app = dash.Dash(__name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}])
 server = app.server
 
 # slicer values 
@@ -33,71 +33,91 @@ route_name_dict.insert(0, {'label': 'ALL', 'value': 'ALL'})
 
 
 # app layout
-app.layout = html.Div([
-    html.Div([
-        html.Div([
-            html.Div([
-                html.H6('Route Type Slicer'),
-                dcc.Dropdown(
-                    id='route-types',
-                    options=route_dict,
-                    value=[],
-                    multi=True,
-                    placeholder='Click or search'
-                )
-            ], className="row"),
-            html.Div([
-                html.H6('County Slicer'),
-                dcc.Dropdown(
-                    id='county-names',
-                    options=county_dict,
-                    value=[],
-                    multi=True,
-                    placeholder='Click or search'
-                )
-            ], className="row"),
-            html.Div([
-                html.H6('Route Slicer'),
-                dcc.Dropdown(
-                    id='route-names',
-                    options=route_name_dict,
-                    value=[],
-                    multi=True,
-                    placeholder='Click or search'
-                )
-            ], className="row"),
-            html.Div([
-                html.H6('Values'),
-                dcc.RadioItems(
-                id='scale',
-                options=[
-                    {'label': 'AADT', 'value': 'AADT'},
-                    {'label': 'Log10AADT', 'value': 'Log10AADT'},
-                    {'label': 'Total Percent Change', 'value': 'Percent Change'}
-                ],
-                value='Log10AADT'
-                )  
-            ], className="row"),
-            html.Div([
-                html.H6('Map Background'),
-                dcc.RadioItems(
-                id='background',
-                options=[
-                    {'label': 'Light', 'value': 'light'},
-                    {'label': 'Dark', 'value': 'dark'}
-                ],
-                value='dark'
-                )  
-            ], className="row")    
-        ], className="three columns", style={"padding": 25}),
+app.layout = html.Div(
+    className="row",
+    children=[
         html.Div(
-            className="nine columns bg-grey",
+            className="slicer-div three columns",
             children=[
-            dcc.Graph(id='scatter-geo'),
-            dcc.Graph(id='year-plot')
-        ])
-    ], className="row")
-])
+                html.Div(
+                    className="dropdown-div row",
+                    children=[
+                        html.P('Route Type Slicer'),
+                        dcc.Dropdown(
+                            id='route-types',
+                            options=route_dict,
+                            value=[],
+                            multi=True,
+                            placeholder='Click or search'
+                        )
+                    ]
+                ),
+                html.Div(
+                    className="dropdown-div row",
+                    children=[
+                        html.P('County Slicer'),
+                        dcc.Dropdown(
+                            id='county-names',
+                            options=county_dict,
+                            value=[],
+                            multi=True,
+                            placeholder='Click or search'
+                        )
+                    ]
+                ),
+                html.Div(
+                    className="dropdown-div row",
+                    children=[
+                        html.P('Route Slicer'),
+                        dcc.Dropdown(
+                            id='route-names',
+                            options=route_name_dict,
+                            value=[],
+                            multi=True,
+                            placeholder='Click or search'
+                        )
+                    ]
+                ),
+                html.Div(
+                    className="radio-div row",
+                    children=[
+                        html.P('Values'),
+                        dcc.RadioItems(
+                        id='scale',
+                        options=[
+                            {'label': 'AADT', 'value': 'AADT'},
+                            {'label': 'Log10AADT', 'value': 'Log10AADT'},
+                            {'label': 'Total Percent Change', 'value': 'Percent Change'}
+                        ],
+                        value='Log10AADT'
+                        )  
+                    ]
+                ),
+                html.Div(
+                    className="radio-div row",
+                    children=[
+                        html.P('Map Background'),
+                        dcc.RadioItems(
+                        id='background',
+                        options=[
+                            {'label': 'Light', 'value': 'light'},
+                            {'label': 'Dark', 'value': 'dark'}
+                        ],
+                        value='dark'
+                        )  
+                    ]
+                )    
+            ]
+        ),
+        html.Div(
+            className="charts-div nine columns bg-grey",
+            children=[
+                dcc.Graph(id='scatter-geo'),
+                dcc.Graph(id='year-plot')
+            ]
+        )
+    ]
+)
 
 # update route names with slicer values
 @app.callback(
@@ -238,6 +258,9 @@ def update_map(route_type, county_name, route_name, scale, map_background):
         #autosize = True,
         hovermode = 'closest',
         showlegend = False,
+        plot_bgcolor="#323130",
+        paper_bgcolor="#323130",
+        margin=go.layout.Margin(t=0, b=0, l=0, r=0),
         mapbox = dict(
             accesstoken = mapboxkey,
             bearing = 0,
@@ -246,7 +269,7 @@ def update_map(route_type, county_name, route_name, scale, map_background):
             zoom = 6.6,
             style = map_background
             ),
-        height=800,
+        height=650,
         uirevision=True
         )
 
@@ -289,8 +312,21 @@ def update_yearplot(route_type, county_name, route_name, scale):
         vals = plot_df['total_pct_change']
         title = 'Total Pct Change'
 
-    data = [go.Violin(y=vals, x=plot_df["year"], box_visible=True, meanline_visible=True, opacity=0.6)]
-    layout = go.Layout(title=title)
+    data = [
+        go.Violin(
+            y=vals, 
+            x=plot_df["year"], 
+            box_visible=True, 
+            meanline_visible=True, 
+            opacity=0.6
+        )
+    ]
+    layout = go.Layout(
+        title=title,
+        margin=go.layout.Margin(t=0, b=0, l=0, r=0),
+        plot_bgcolor="#323130",
+        paper_bgcolor="#323130"
+    )
 
     return {'data': data, 'layout': layout}
 
