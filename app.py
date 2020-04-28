@@ -253,7 +253,9 @@ def update_map(route_type, county_name, route_name, scale, map_background):
             cmin = cmin,
             showscale = True
         ),
-        text = plot_df['route_leg_descrip'] + " - AverageDailyTraffic: " + plot_df.average_daily_traffic.astype(str)
+        text = 'Route: ' + plot_df['route'] +\
+            '<br>Route Leg: ' + plot_df['route_leg_descrip'] +\
+            "<br>AverageDailyTraffic: " + plot_df.average_daily_traffic.astype(str)
     )]
                
     layout = go.Layout(
