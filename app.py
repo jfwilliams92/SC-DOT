@@ -39,6 +39,8 @@ app.layout = html.Div(
         html.Div(
             className="slicer-div three columns",
             children=[
+                html.H2("SC DOT"),
+                html.H2("Average Daily Traffic in South Carolina"),
                 html.Div(
                     className="dropdown-div row",
                     children=[
@@ -257,6 +259,7 @@ def update_map(route_type, county_name, route_name, scale, map_background):
     layout = go.Layout(
         #autosize = True,
         hovermode = 'closest',
+        font=dict(color="white"),
         showlegend = False,
         plot_bgcolor="#323130",
         paper_bgcolor="#323130",
@@ -269,7 +272,7 @@ def update_map(route_type, county_name, route_name, scale, map_background):
             zoom = 6.6,
             style = map_background
             ),
-        height=650,
+        height=575,
         uirevision=True
         )
 
@@ -304,13 +307,18 @@ def update_yearplot(route_type, county_name, route_name, scale):
     # map configurations
     if scale == 'AADT':
         vals = plot_df['average_daily_traffic']
+        medians = plot_df.groupby('year').average_daily_traffic.median().reset_index()
         title = 'Average Daily Traffic'
     elif scale == 'Log10AADT':
         vals = np.log10(plot_df['average_daily_traffic'])
+        medians = plot_df.groupby('year').log10_adt.median().reset_index()
         title = 'Log10(Average Daily Traffic)'
     elif scale == 'Percent Change':
         vals = plot_df['total_pct_change']
+        medians = plot_df.groupby('year').total_pct_change.median().reset_index()
         title = 'Total Pct Change'
+
+    medians.columns=['year', 'vals']
 
     data = [
         go.Violin(
@@ -318,12 +326,20 @@ def update_yearplot(route_type, county_name, route_name, scale):
             x=plot_df["year"], 
             box_visible=True, 
             meanline_visible=True, 
-            opacity=0.6
+            opacity=0.6,
+            line_color='mediumpurple'
+        ),
+        go.Scatter(
+            x=medians.year,
+            y=medians.vals,
+            line_color='lightblue'
         )
     ]
     layout = go.Layout(
         title=title,
-        margin=go.layout.Margin(t=0, b=0, l=0, r=0),
+        showlegend=False,
+        font=dict(color="white"),
+        margin=go.layout.Margin(t=32, b=25, l=30, r=5),
         plot_bgcolor="#323130",
         paper_bgcolor="#323130"
     )
